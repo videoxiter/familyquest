@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FamilyQuest</title>
+    <script>
+      // SPA-фолбэк: любая прямая ссылка возвращает в приложение.
+      // Маршруты хранятся в хэше, поэтому приводим путь к корню проекта.
+      (function () {
+        var path = window.location.pathname;
+        var base = path.replace(/\/[^/]*$/, '/');
+        window.location.replace(base + '#/today');
+      })();
+    </script>
+  </head>
+  <body>
+    <p style="font-family: system-ui; padding: 24px">
+      Переход в приложение… <a href="./">Открыть FamilyQuest</a>
+    </p>
+  </body>
+</html>

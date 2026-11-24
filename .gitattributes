@@ -1,0 +1,11 @@
+# Единые переводы строк: иначе на Windows git-diff ломает проверку актуальности SQL-бандла
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
+*.drawio -text

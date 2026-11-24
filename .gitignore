@@ -1,0 +1,17 @@
+node_modules/
+dist/
+dist-ssr/
+.vite/
+
+# Секреты: URL и ключи Supabase кладутся локально, в репозиторий не попадают
+.env
+.env.*
+!.env.example
+
+*.local
+.DS_Store
+Thumbs.db
+
+# Служебное состояние агента/сессии
+.dsh/
+*.log

@@ -1,0 +1,31 @@
+name: Проверка
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Типы
+        run: npm run typecheck
+
+      - name: Сборка
+        run: npm run build
+
+      - name: SQL-файл в репозитории актуален
+        run: |
+          npm run sql:bundle
+          git diff --exit-code supabase/apply_all.sql \
+            || (echo "::error::apply_all.sql устарел — запусти npm run sql:bundle и закоммить"; exit 1)
