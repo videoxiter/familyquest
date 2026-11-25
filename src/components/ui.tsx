@@ -157,3 +157,8 @@ export function Spinner({ className }: { className?: string }) {
     />
   )
 }
+
+/** Плейсхолдер, пока грузятся данные. */
+export function Skeleton({ className }: { className?: string }) {
+  return <div className={clsx('skeleton h-20 w-full', className)} />
+}

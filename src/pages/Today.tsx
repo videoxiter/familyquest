@@ -11,7 +11,11 @@ import { categoryEmoji } from '../lib/categories'
 import { deadlineHint, timeOf } from '../lib/format'
 import { useAction, useToday } from '../lib/queries'
 import type { Profile, Task } from '../lib/types'
-import { Badge, Button, Card, Empty, ProgressBar, SectionTitle, Spinner } from '../components/ui'
+import { Art } from '../components/Art'
+import { AwardToast } from '../components/AwardToast'
+import { Badge, Button, Card, Empty, ProgressBar, SectionTitle, Skeleton } from '../components/ui'
+
+type Award = { title: string; coins: number; xp: number; key: number }
 
 export default function Today() {
   const me = useOutletContext<Profile>()
@@ -20,15 +24,14 @@ export default function Today() {
   const claim = useAction<string, { id: string; status: string; mine: boolean }>(claimTask)
   const release = useAction<string, { id: string; status: string; pool: boolean }>(releaseTask)
   const [flash, setFlash] = useState<string | null>(null)
+  const [award, setAward] = useState<Award | null>(null)
 
   const tasks = today.data ?? []
   const mineOpen = tasks.filter(
     (t) => !t.in_pool && (t.status === 'pending' || t.status === 'submitted'),
   )
   const pool = tasks.filter((t) => t.in_pool)
-  const done = tasks.filter(
-    (t) => !t.in_pool && t.status !== 'pending' && t.status !== 'submitted',
-  )
+  const done = tasks.filter((t) => !t.in_pool && t.status !== 'pending' && t.status !== 'submitted')
 
   const nextThreshold = me.next_level?.threshold ?? me.level.threshold
   const span = Math.max(1, nextThreshold - me.level.threshold)
@@ -37,6 +40,11 @@ export default function Today() {
   function say(text: string, ms = 3400) {
     setFlash(text)
     window.setTimeout(() => setFlash(null), ms)
+  }
+
+  function showAward(task: Task, result: CompleteResult) {
+    setAward({ title: task.title, coins: result.coins, xp: result.xp, key: Date.now() })
+    window.setTimeout(() => setAward(null), 2300)
   }
 
   async function run(action: () => Promise<unknown>, ok?: string) {
@@ -50,20 +58,22 @@ export default function Today() {
 
   return (
     <div className="space-y-5">
-      <Card className="animate-pop">
+      <Card className="anim-fade-up anim-glow">
         <div className="mb-2 flex items-baseline justify-between">
           <span className="text-sm text-mist-500">
             {me.level.name} · {me.level.idx} уровень
           </span>
           <span className="text-xs text-mist-500">
-            {me.next_level ? `до «${me.next_level.name}» ${nextThreshold - me.xp_total} опыта` : 'максимум'}
+            {me.next_level
+              ? `до «${me.next_level.name}» ${nextThreshold - me.xp_total} опыта`
+              : 'максимум'}
           </span>
         </div>
         <ProgressBar value={progress} max={span} />
         <div className="mt-3 flex justify-between text-xs text-mist-500">
           <span>{me.xp_total} опыта</span>
           <span>
-            {me.coins} 🪙 · 🔥 {me.streak} · 🏅 {me.badges}
+            {me.coins} 🪙 · <span className={me.streak > 1 ? 'anim-flame inline-block' : ''}>🔥 {me.streak}</span> · 🏅 {me.badges}
           </span>
         </div>
       </Card>
@@ -80,43 +90,57 @@ export default function Today() {
         </SectionTitle>
 
         {today.isLoading && (
-          <div className="flex justify-center py-8">
-            <Spinner />
+          <div className="space-y-2">
+            <Skeleton />
+            <Skeleton />
           </div>
         )}
 
         {!today.isLoading && mineOpen.length === 0 && (
-          <Empty>
-            {tasks.length === 0
-              ? 'На сегодня задач нет. Родитель добавит их во вкладке «Админ» → «Задачи» → «+ Новая задача».'
-              : pool.length > 0
-                ? 'Пока ничего не взято. Выбери задачу из общей очереди ниже — кто первый взял, тот и выполняет.'
-                : 'Все дела на сегодня сделаны.'}
-          </Empty>
+          <div className="rounded-2xl border border-dashed border-white/10 px-4 py-8">
+            <Art
+              src="./art/empty-tasks.png"
+              alt=""
+              className="mx-auto mb-3 h-28 w-auto object-contain opacity-90"
+            />
+            <p className="text-center text-sm text-mist-500">
+              {tasks.length === 0
+                ? 'На сегодня задач нет. Родитель добавит их во вкладке «Админ» → «Задачи» → «+ Новая задача».'
+                : pool.length > 0
+                  ? 'Пока ничего не взято. Выбери задачу из общей очереди ниже — кто первый взял, тот и выполняет.'
+                  : 'Все дела на сегодня сделаны.'}
+            </p>
+          </div>
         )}
 
         <div className="space-y-2">
-          {mineOpen.map((task) => (
-            <TaskCard
+          {mineOpen.map((task, index) => (
+            <div
               key={task.id}
-              task={task}
-              onComplete={() =>
-                void run(async () => {
-                  const result = await complete.mutateAsync(task.id)
-                  say(
-                    result.status === 'approved'
-                      ? result.coins > 0
-                        ? `«${task.title}» · +${result.coins} 🪙 · +${result.xp} опыта`
-                        : `«${task.title}» закрыто · без баллов`
-                      : `«${task.title}» отправлено на проверку`,
+              className="anim-fade-up"
+              style={{ animationDelay: `${index * 45}ms` }}
+            >
+              <TaskCard
+                task={task}
+                onComplete={() =>
+                  void run(async () => {
+                    const result = await complete.mutateAsync(task.id)
+                    if (result.status === 'approved') {
+                      showAward(task, result)
+                    } else {
+                      say(`«${task.title}» отправлено на проверку`)
+                    }
+                  })
+                }
+                onRelease={() =>
+                  void run(
+                    () => release.mutateAsync(task.id),
+                    `«${task.title}» вернулась в общую очередь`,
                   )
-                })
-              }
-              onRelease={() =>
-                void run(() => release.mutateAsync(task.id), `«${task.title}» вернулась в общую очередь`)
-              }
-              busy={complete.isPending || release.isPending}
-            />
+                }
+                busy={complete.isPending || release.isPending}
+              />
+            </div>
           ))}
         </div>
       </section>
@@ -131,13 +155,18 @@ export default function Today() {
         )}
 
         <div className="space-y-2">
-          {pool.map((task) => (
-            <TaskCard
+          {pool.map((task, index) => (
+            <div
               key={task.id}
-              task={task}
-              onClaim={() => void run(() => claim.mutateAsync(task.id), `Взял «${task.title}»`)}
-              busy={claim.isPending}
-            />
+              className="anim-fade-up"
+              style={{ animationDelay: `${index * 45}ms` }}
+            >
+              <TaskCard
+                task={task}
+                onClaim={() => void run(() => claim.mutateAsync(task.id), `Взял «${task.title}»`)}
+                busy={claim.isPending}
+              />
+            </div>
           ))}
         </div>
       </section>
@@ -152,6 +181,8 @@ export default function Today() {
           </div>
         </section>
       )}
+
+      <AwardToast award={award} />
     </div>
   )
 }

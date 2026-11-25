@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import { prettyError, redeemReward } from '../lib/api'
 import { useAction, useRewards } from '../lib/queries'
 import type { Profile } from '../lib/types'
+import { Art } from '../components/Art'
 import { Badge, Button, Card, Empty, SectionTitle, Spinner } from '../components/ui'
 
 const TIER_LABEL: Record<string, string> = {
@@ -33,7 +34,7 @@ export default function Rewards() {
 
   return (
     <div className="space-y-5">
-      <Card>
+      <Card className="anim-fade-up">
         <div className="flex items-baseline justify-between">
           <span className="text-sm text-mist-500">В кошельке</span>
           <span className="text-2xl font-semibold text-accent">{me.coins} 🪙</span>
@@ -42,6 +43,8 @@ export default function Rewards() {
           Монеты нельзя увести в минус: тратишь только то, что заработал.
         </p>
       </Card>
+
+      <Art src="./art/rewards.png" alt="" className="mx-auto h-32 w-auto object-contain" />
 
       {flash && (
         <div className="animate-pop rounded-xl border border-accent/40 bg-accent-soft px-3 py-2 text-sm text-accent">

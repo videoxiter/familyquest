@@ -67,3 +67,146 @@ textarea {
 .animate-pop {
   animation: pop 0.18s ease-out both;
 }
+
+/* ───────────────────────────── анимации ─────────────────────────────────── */
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.anim-fade-up {
+  animation: fade-up 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes award-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  75% {
+    opacity: 1;
+    transform: translateY(-6px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-42px) scale(1.04);
+  }
+}
+
+.anim-award {
+  animation: award-rise 2.2s ease-out both;
+}
+
+@keyframes flame {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 rgba(255, 170, 60, 0));
+  }
+  50% {
+    transform: scale(1.14);
+    filter: drop-shadow(0 0 6px rgba(255, 170, 60, 0.75));
+  }
+}
+
+.anim-flame {
+  animation: flame 1.9s ease-in-out infinite;
+  display: inline-block;
+}
+
+@keyframes celebrate-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.82) translateY(14px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.03) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.anim-celebrate {
+  animation: celebrate-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes confetti-fall {
+  0% {
+    opacity: 0;
+    transform: translateY(-40px) rotate(0deg);
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(320px) rotate(260deg);
+  }
+}
+
+.confetti-piece {
+  position: absolute;
+  width: 8px;
+  height: 14px;
+  border-radius: 2px;
+  animation: confetti-fall 2.4s ease-in forwards;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  border-radius: 12px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 25%, rgba(255, 255, 255, 0.09) 37%, rgba(255, 255, 255, 0.04) 63%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes soft-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(106, 168, 255, 0.18);
+  }
+  50% {
+    box-shadow: 0 0 22px 2px rgba(106, 168, 255, 0.18);
+  }
+}
+
+.anim-glow {
+  animation: soft-glow 3.4s ease-in-out infinite;
+}
+
+/* Уважаем системную настройку «меньше движения» */
+@media (prefers-reduced-motion: reduce) {
+  .anim-fade-up,
+  .anim-award,
+  .anim-celebrate,
+  .confetti-piece,
+  .anim-flame,
+  .anim-glow,
+  .skeleton,
+  .animate-pop {
+    animation: none !important;
+  }
+}
+

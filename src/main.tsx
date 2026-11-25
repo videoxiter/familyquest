@@ -30,3 +30,13 @@ createRoot(document.getElementById('root') as HTMLElement).render(
     </ErrorBoundary>
   </StrictMode>,
 )
+
+// Офлайн-оболочка и установка на домашний экран. Только в собранной версии:
+// в режиме разработки service worker мешает горячей перезагрузке.
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker
+      .register(`${import.meta.env.BASE_URL}sw.js`)
+      .catch(() => undefined)
+  })
+}

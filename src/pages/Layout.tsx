@@ -1,11 +1,25 @@
+import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import clsx from 'clsx'
 import { signOut } from '../lib/api'
 import { useProfile } from '../lib/queries'
 import { Avatar, Button, Spinner } from '../components/ui'
+import { LevelUp } from '../components/LevelUp'
 
 export default function Layout() {
   const profile = useProfile()
+  const [celebrate, setCelebrate] = useState<{ idx: number; name: string } | null>(null)
+  const previousLevel = useRef<number | null>(null)
+
+  // Ловим повышение уровня между обновлениями профиля.
+  useEffect(() => {
+    const level = profile.data?.level
+    if (!level) return
+    if (previousLevel.current !== null && level.idx > previousLevel.current) {
+      setCelebrate({ idx: level.idx, name: level.name })
+    }
+    previousLevel.current = level.idx
+  }, [profile.data])
 
   if (profile.isLoading) {
     return (
@@ -48,7 +62,12 @@ export default function Layout() {
             <div className="truncate text-sm font-semibold">{me.display_name}</div>
             <div className="truncate text-xs text-mist-500">
               {me.level.name} · {me.level.idx} ур.
-              {me.streak > 1 ? ` · 🔥 ${me.streak}` : ''}
+              {me.streak > 1 ? (
+                <>
+                  {' · '}
+                  <span className="anim-flame">🔥 {me.streak}</span>
+                </>
+              ) : null}
             </div>
           </div>
           <div className="text-right">
@@ -81,6 +100,8 @@ export default function Layout() {
           ))}
         </div>
       </nav>
+
+      {celebrate && <LevelUp level={celebrate} onDone={() => setCelebrate(null)} />}
     </div>
   )
 }

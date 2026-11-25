@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { signIn, signUpWithInvite, prettyError } from '../lib/api'
 import { useLoginMembers } from '../lib/queries'
 import type { LoginMember } from '../lib/types'
+import { Art } from '../components/Art'
 import { Avatar, Button, Card, ErrorBanner, Spinner } from '../components/ui'
 
 type Mode = 'pick' | 'password' | 'join'
@@ -57,6 +58,7 @@ export default function Login() {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-5 py-10">
       <div className="mb-8">
+        <Art src="./art/hero.png" alt="" className="mb-5 w-full rounded-3xl object-contain" />
         <h1 className="text-3xl font-bold tracking-tight">FamilyQuest</h1>
         <p className="mt-1 text-mist-500">Семейные дела, уровни и призы</p>
       </div>
