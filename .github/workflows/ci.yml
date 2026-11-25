@@ -29,3 +29,9 @@ jobs:
           npm run sql:bundle
           git diff --exit-code supabase/apply_all.sql \
             || (echo "::error::apply_all.sql устарел — запусти npm run sql:bundle и закоммить"; exit 1)
+
+      - name: Миграции применяются на чистом Postgres
+        run: npm run test:sql
+
+      - name: Готовый apply_all.sql применяется целиком
+        run: npm run test:bundle

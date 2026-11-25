@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "test:sql": "node scripts/test-sql.mjs",
-    "test": "npm run typecheck && npm run test:sql",
+    "test:bundle": "node scripts/test-sql.mjs --bundle",
+    "test": "npm run typecheck && npm run test:sql && npm run test:bundle",
     "sql:bundle": "node scripts/bundle-sql.mjs"
   },
   "dependencies": {

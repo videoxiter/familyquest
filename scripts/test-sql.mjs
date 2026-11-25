@@ -1,6 +1,6 @@
 // Проверка миграций на реальном Postgres (PGlite, WASM).
 // Supabase-специфику подменяем минимальными заглушками: auth.users, auth.uid(), роли.
-// Запуск: npm run test:sql
+// Запуск: npm run test:sql  (по файлам) или npm run test:bundle (готовый apply_all.sql)
 import { PGlite } from '@electric-sql/pglite'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -8,6 +8,9 @@ import { fileURLToPath } from 'node:url'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 const db = new PGlite()
+
+/** true — проверяем ровно тот файл, который вставляют в Supabase SQL Editor. */
+const USE_BUNDLE = process.argv.includes('--bundle') || process.env.FQ_TEST_BUNDLE === '1'
 
 const FAMILY = '11111111-1111-1111-1111-111111111111'
 const PAPA = '22222222-2222-2222-2222-222222222201'
@@ -34,6 +37,27 @@ async function apply(file) {
   console.log(`  · применён ${file}`)
 }
 
+/** PGlite не умеет расширения — вырезаем только их подключение. */
+function stripExtensions(sql) {
+  return sql
+    .replace(/create extension if not exists pgcrypto;/gi, '-- pgcrypto: в Supabase есть')
+    .replace(/create extension if not exists pg_cron;/gi, '-- pg_cron: в Supabase включается отдельно')
+}
+
+async function applyAll() {
+  if (!USE_BUNDLE) {
+    await apply('0001_schema.sql')
+    await apply('0002_rls.sql')
+    await apply('0003_engine.sql')
+    await apply('0005_seed.sql')
+    return
+  }
+
+  const raw = readFileSync(join(root, 'supabase', 'apply_all.sql'), 'utf8')
+  await db.exec(stripExtensions(raw))
+  console.log('  · применён supabase/apply_all.sql (тот же файл, что вставляется в Supabase)')
+}
+
 try {
   console.log('Готовим окружение Supabase…')
   await db.exec(`
@@ -55,10 +79,7 @@ try {
   `)
 
   console.log('Применяем миграции…')
-  await apply('0001_schema.sql')
-  await apply('0002_rls.sql')
-  await apply('0003_engine.sql')
-  await apply('0005_seed.sql')
+  await applyAll()
 
   // ── схема и сид ──────────────────────────────────────────────────────────
   const tables = await one(
