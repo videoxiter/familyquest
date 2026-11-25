@@ -38,12 +38,22 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
         run: npm run build
 
-      - name: Проверить, что ключи подставились
+      - name: Проверить, что переменные заданы
+        env:
+          SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          SUPABASE_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
         run: |
-          if grep -q "placeholder.supabase.co" dist/assets/*.js; then
-            echo "::warning::VITE_SUPABASE_URL не задан — приложение покажет экран настройки"
-          else
-            echo "Supabase URL подставлен"
+          missing=0
+          if [ -z "$SUPABASE_URL" ]; then
+            echo "::warning::Переменная VITE_SUPABASE_URL не задана — приложение покажет экран настройки"
+            missing=1
+          fi
+          if [ -z "$SUPABASE_KEY" ]; then
+            echo "::warning::Переменная VITE_SUPABASE_ANON_KEY не задана — приложение покажет экран настройки"
+            missing=1
+          fi
+          if [ "$missing" = "0" ]; then
+            echo "Обе переменные на месте, ключи подставлены в сборку"
           fi
 
       - uses: actions/configure-pages@v5
