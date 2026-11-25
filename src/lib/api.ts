@@ -38,6 +38,20 @@ const ERROR_TEXT: [string, string][] = [
   ['Database error saving new user', 'Код не подошёл или уже использован'],
   ['duplicate key value', 'Такой логин уже существует'],
   ['Failed to fetch', 'Нет связи с сервером — проверь интернет'],
+  [
+    'Invalid path specified in request URL',
+    'Адрес проекта в переменных сборки неверный: нужен только https://xxxx.supabase.co, без /rest/v1',
+  ],
+  [
+    'No API key found',
+    'Не задан ключ проекта: добавь переменную VITE_SUPABASE_ANON_KEY со значением anon public',
+  ],
+  [
+    'Invalid API key',
+    'Ключ проекта не подошёл: скопируй anon public из Project Settings → API (не service_role)',
+  ],
+  ['Email not confirmed', 'Включено подтверждение почты: выключи Confirm email в Supabase'],
+  ['email_confirmation_required', 'Выключи Confirm email в Supabase → Authentication → Email'],
 ]
 
 export function prettyError(e: unknown): string {
