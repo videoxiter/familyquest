@@ -200,6 +200,45 @@ try {
   const repeat = await one(`select public.materialize_daily(null, current_date + 3) as n`)
   check('повторная материализация не дублирует', repeat.n === 0)
 
+  // ── общая очередь: кто первый взял ──────────────────────────────────────
+  const poolTask = await one(
+    `select id from public.assignments where assignee_id is null and status = 'pending' limit 1`,
+  )
+  check('в общей очереди есть свободные задачи', Boolean(poolTask?.id))
+
+  await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [PAPA_USER])
+  const claimed = await one(`select public.claim_assignment($1) as r`, [poolTask.id])
+  check('задачу можно взять из очереди', claimed.r?.mine === true)
+
+  await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ALYOSHA_USER])
+  let takenErr = false
+  try {
+    await db.query(`select public.claim_assignment($1)`, [poolTask.id])
+  } catch (e) {
+    takenErr = String(e.message).includes('already_taken')
+  }
+  check('второй человек взять не может', takenErr)
+
+  await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [PAPA_USER])
+  await db.query(`select public.release_assignment($1)`, [poolTask.id])
+  const released = await one(`select assignee_id from public.assignments where id = $1`, [poolTask.id])
+  check('отказ возвращает задачу в очередь', released.assignee_id === null)
+
+  const autoTask = await one(
+    `select id from public.assignments
+      where assignee_id is null and status = 'pending' and approval = 'auto' and kind = 'quest'
+      limit 1`,
+  )
+  await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ALYOSHA_USER])
+  const autoDone = await one(`select public.complete_assignment($1) as r`, [autoTask.id])
+  const autoOwner = await one(`select assignee_id from public.assignments where id = $1`, [autoTask.id])
+  check(
+    'выполнение свободной задачи закрепляет её за выполнившим',
+    autoOwner.assignee_id === ALYOSHA && autoDone.r.status === 'approved',
+  )
+
+  await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [PAPA_USER])
+
   // ── призы ───────────────────────────────────────────────────────────────
   const reward = await one(`select id, price_coins from public.rewards order by price_coins limit 1`)
   let notEnough = false
@@ -232,12 +271,23 @@ try {
     `select count(*)::int as n from public.assignments where assignee_id = $1`,
     [ALYOSHA],
   )
-  check('проверка RLS осмысленна (есть чужие задачи)', allAssignments.n > alyoshaTotal.n, `всего ${allAssignments.n}, у Алёши ${alyoshaTotal.n}`)
+  const poolTotal = await one(
+    `select count(*)::int as n from public.assignments where assignee_id is null`,
+  )
+  check(
+    'проверка RLS осмысленна (есть чужие задачи)',
+    allAssignments.n > alyoshaTotal.n + poolTotal.n,
+    `всего ${allAssignments.n}, у Алёши ${alyoshaTotal.n}, в очереди ${poolTotal.n}`,
+  )
 
   await db.query(`set role authenticated`)
 
   const visible = await one(`select count(*)::int as n from public.assignments`)
-  check('RLS: видны только свои задачи', visible.n === alyoshaTotal.n, `${visible.n} из ${allAssignments.n}`)
+  check(
+    'RLS: видны свои задачи и общая очередь',
+    visible.n === alyoshaTotal.n + poolTotal.n,
+    `${visible.n} из ${allAssignments.n}`,
+  )
 
   const hack = await db.query(
     `update public.members set coins = 9999 where id = $1 returning id`,

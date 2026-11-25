@@ -110,7 +110,7 @@ export default function Admin() {
                     <span className="truncate font-medium">{task.title}</span>
                   </div>
                   <div className="mt-1 text-xs text-mist-500">
-                    {task.assignee_name} · {task.category} · {task.weight} 🪙
+                    {task.assignee_name ?? 'исполнитель'} · {task.category} · {task.weight} 🪙
                     {task.due_at ? ` · срок ${timeOf(task.due_at)}` : ''}
                   </div>
                 </div>
@@ -215,7 +215,9 @@ function TaskRow({
             {task.title}
           </div>
           <div className="text-xs text-mist-500">
-            {task.assignee_emoji} {task.assignee_name} · {task.weight} 🪙
+            {task.in_pool ? '📥 в общей очереди' : `${task.assignee_emoji} ${task.assignee_name ?? ''}`}
+            {' · '}
+            {task.weight} 🪙
             {task.due_at ? ` · до ${timeOf(task.due_at)}` : ''}
           </div>
         </div>

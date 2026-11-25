@@ -62,7 +62,8 @@ create table if not exists public.assignments (
   template_id uuid references public.task_templates(id) on delete set null,
   title       text not null,
   category    text not null default 'дом',
-  assignee_id uuid not null references public.members(id) on delete cascade,
+  -- assignee_id = NULL означает «лежит в общей очереди»: возьмёт тот, кто первый.
+  assignee_id uuid references public.members(id) on delete cascade,
   created_by  uuid references public.members(id) on delete set null,
   kind        text not null default 'quest' check (kind in ('duty', 'quest')),
   weight      integer not null default 10 check (weight >= 0),
@@ -81,10 +82,18 @@ create table if not exists public.assignments (
   created_at  timestamptz not null default now()
 );
 
--- один экземпляр шаблона на человека в день (защита от дублей при материализации)
+-- Миграция для уже установленных баз: снимаем NOT NULL, если таблица создана раньше.
+alter table public.assignments alter column assignee_id drop not null;
+
+-- один экземпляр шаблона в день (защита от дублей при материализации) —
+-- без привязки к человеку: шаблон рождает одну задачу в общую очередь
+drop index if exists public.assignments_template_day_uniq;
 create unique index if not exists assignments_template_day_uniq
-  on public.assignments (template_id, assignee_id, due_date)
+  on public.assignments (template_id, due_date)
   where template_id is not null;
+
+create index if not exists assignments_pool_idx
+  on public.assignments (family_id, status) where assignee_id is null;
 
 create index if not exists assignments_open_idx
   on public.assignments (family_id, due_at) where status in ('pending', 'submitted');

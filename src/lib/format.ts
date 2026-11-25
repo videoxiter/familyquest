@@ -55,6 +55,8 @@ const FEED_KIND_TEXT: Record<string, (p: Record<string, unknown>) => string> = {
   task_rejected: (p) => `задача «${p.title}» возвращена${p.reason ? `: ${p.reason}` : ''}`,
   task_missed: (p) => `пропустил «${p.title}» — срок истёк`,
   task_waived: (p) => `простили «${p.title}»`,
+  task_claimed: (p) => `взял «${p.title}» из общей очереди`,
+  task_released: (p) => `вернул «${p.title}» в общую очередь`,
   achievement: (p) => `получил значок ${p.icon} «${p.title}»`,
   member_joined: () => 'присоединился к семье',
   reward_redeemed: (p) => `обменял ${p.coins} монет на «${p.reward}»`,

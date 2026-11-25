@@ -27,6 +27,7 @@ const ERROR_TEXT: [string, string][] = [
   ['not_submitted', 'Задача не отправлена на проверку'],
   ['assignment_not_found', 'Задача не найдена'],
   ['already_closed', 'Задача уже закрыта'],
+  ['already_taken', 'Задачу уже кто-то взял'],
   ['not_enough_coins', 'Не хватает монет'],
   ['out_of_stock', 'Этот приз закончился'],
   ['reward_not_found', 'Приз не найден'],
@@ -129,6 +130,10 @@ export const rewardsBundle = () => rpc<RewardsBundle>('my_rewards')
 export type CompleteResult = { id: string; status: string; coins: number; xp: number }
 
 export const completeTask = (id: string) => rpc<CompleteResult>('complete_assignment', { p_id: id })
+export const claimTask = (id: string) =>
+  rpc<{ id: string; status: string; mine: boolean }>('claim_assignment', { p_id: id })
+export const releaseTask = (id: string) =>
+  rpc<{ id: string; status: string; pool: boolean }>('release_assignment', { p_id: id })
 export const approveTask = (id: string) => rpc<CompleteResult>('approve_assignment', { p_id: id })
 export const rejectTask = (id: string, reason: string | null) =>
   rpc<{ id: string; status: string }>('reject_assignment', { p_id: id, p_reason: reason })

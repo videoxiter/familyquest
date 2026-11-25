@@ -135,6 +135,20 @@ values
    'monthly', null, '12:00', 'review', true)
 on conflict (id) do nothing;
 
+-- «Квесты» больше не закреплены за человеком: они попадают в общий котёл, и взять
+-- их может кто угодно. «Долг» (своя комната, своя посуда) остаётся личным.
+update public.task_templates set assignee_id = null where kind = 'quest';
+
+-- уже созданные на сегодня задачи переводим в общую очередь
+update public.assignments a
+   set assignee_id = null
+ where a.status = 'pending'
+   and a.template_id is not null
+   and exists (
+     select 1 from public.task_templates t
+     where t.id = a.template_id and t.assignee_id is null
+   );
+
 -- ───────────────────────────── призы ────────────────────────────────────────
 
 insert into public.rewards (id, family_id, title, description, tier, price_coins, stock)

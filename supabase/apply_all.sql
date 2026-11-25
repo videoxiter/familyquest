@@ -71,7 +71,8 @@ create table if not exists public.assignments (
   template_id uuid references public.task_templates(id) on delete set null,
   title       text not null,
   category    text not null default 'дом',
-  assignee_id uuid not null references public.members(id) on delete cascade,
+  -- assignee_id = NULL означает «лежит в общей очереди»: возьмёт тот, кто первый.
+  assignee_id uuid references public.members(id) on delete cascade,
   created_by  uuid references public.members(id) on delete set null,
   kind        text not null default 'quest' check (kind in ('duty', 'quest')),
   weight      integer not null default 10 check (weight >= 0),
@@ -90,10 +91,18 @@ create table if not exists public.assignments (
   created_at  timestamptz not null default now()
 );
 
--- один экземпляр шаблона на человека в день (защита от дублей при материализации)
+-- Миграция для уже установленных баз: снимаем NOT NULL, если таблица создана раньше.
+alter table public.assignments alter column assignee_id drop not null;
+
+-- один экземпляр шаблона в день (защита от дублей при материализации) —
+-- без привязки к человеку: шаблон рождает одну задачу в общую очередь
+drop index if exists public.assignments_template_day_uniq;
 create unique index if not exists assignments_template_day_uniq
-  on public.assignments (template_id, assignee_id, due_date)
+  on public.assignments (template_id, due_date)
   where template_id is not null;
+
+create index if not exists assignments_pool_idx
+  on public.assignments (family_id, status) where assignee_id is null;
 
 create index if not exists assignments_open_idx
   on public.assignments (family_id, due_at) where status in ('pending', 'submitted');
@@ -357,13 +366,17 @@ create policy templates_admin_delete on public.task_templates
   for delete to authenticated
   using (public.is_admin() and family_id = public.current_family_id());
 
--- assignments: видно свои или всю семью админу; запись — только через RPC
+-- assignments: свои задачи + общая очередь видны всем; запись — только через RPC
 drop policy if exists assignments_select on public.assignments;
 create policy assignments_select on public.assignments
   for select to authenticated
   using (
     family_id = public.current_family_id()
-    and (assignee_id = public.current_member_id() or public.is_admin())
+    and (
+      assignee_id = public.current_member_id()
+      or assignee_id is null
+      or public.is_admin()
+    )
   );
 
 -- ledger: свои операции или все админу
@@ -715,8 +728,17 @@ begin
   select * into a from public.assignments where id = p_id for update;
   if not found then raise exception 'assignment_not_found'; end if;
   if a.family_id <> public.current_family_id() then raise exception 'forbidden'; end if;
-  if a.assignee_id <> v_me and not v_admin then raise exception 'forbidden'; end if;
   if a.status <> 'pending' then raise exception 'not_pending'; end if;
+
+  -- задача из общей очереди: кто первый выполнил, тот её и забрал
+  if a.assignee_id is null then
+    update public.assignments set assignee_id = v_me where id = p_id;
+    perform public.push_feed(a.family_id, 'task_claimed', v_me, v_me,
+      jsonb_build_object('assignment', a.id, 'title', a.title, 'category', a.category));
+    a.assignee_id := v_me;
+  end if;
+
+  if a.assignee_id <> v_me and not v_admin then raise exception 'forbidden'; end if;
 
   v_late := a.due_at is not null and now() > a.due_at;
 
@@ -735,6 +757,69 @@ begin
                               'coins', x.coins_awarded, 'xp', x.xp_awarded)
     from public.assignments x where x.id = p_id
   );
+end;
+$$;
+
+-- ── общая очередь: взять задачу себе / вернуть обратно ──────────────────────
+
+create or replace function public.claim_assignment(p_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  a record;
+  v_me uuid := public.current_member_id();
+begin
+  if v_me is null then raise exception 'not_member'; end if;
+
+  select * into a from public.assignments where id = p_id for update;
+  if not found then raise exception 'assignment_not_found'; end if;
+  if a.family_id <> public.current_family_id() then raise exception 'forbidden'; end if;
+  if a.status <> 'pending' then raise exception 'not_pending'; end if;
+  if a.assignee_id = v_me then
+    return jsonb_build_object('id', p_id, 'status', a.status, 'mine', true);
+  end if;
+  if a.assignee_id is not null then raise exception 'already_taken'; end if;
+
+  update public.assignments set assignee_id = v_me where id = p_id;
+
+  perform public.push_feed(a.family_id, 'task_claimed', v_me, v_me,
+    jsonb_build_object('assignment', a.id, 'title', a.title, 'category', a.category));
+
+  return jsonb_build_object('id', p_id, 'status', a.status, 'mine', true);
+end;
+$$;
+
+create or replace function public.release_assignment(p_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  a record;
+  v_me uuid := public.current_member_id();
+  v_admin boolean := public.is_admin();
+begin
+  if v_me is null then raise exception 'not_member'; end if;
+
+  select * into a from public.assignments where id = p_id for update;
+  if not found then raise exception 'assignment_not_found'; end if;
+  if a.family_id <> public.current_family_id() then raise exception 'forbidden'; end if;
+  if a.assignee_id is null then
+    return jsonb_build_object('id', p_id, 'status', a.status, 'pool', true);
+  end if;
+  if a.status <> 'pending' then raise exception 'not_pending'; end if;
+  if a.assignee_id <> v_me and not v_admin then raise exception 'forbidden'; end if;
+
+  update public.assignments set assignee_id = null where id = p_id;
+
+  perform public.push_feed(a.family_id, 'task_released', v_me, a.assignee_id,
+    jsonb_build_object('assignment', a.id, 'title', a.title));
+
+  return jsonb_build_object('id', p_id, 'status', a.status, 'pool', true);
 end;
 $$;
 
@@ -855,7 +940,6 @@ begin
     select coalesce(p_date, (now() at time zone f.timezone)::date) as day
   ) d
   where t.active
-    and t.assignee_id is not null
     and (p_family is null or t.family_id = p_family)
     and (
       t.recurrence = 'daily'
@@ -894,6 +978,15 @@ begin
     where a.status = 'pending' and a.due_at is not null and a.due_at < now()
     for update of a skip locked
   loop
+    -- Никто не взял задачу из общей очереди — убираем молча, виноватых нет.
+    if r.assignee_id is null then
+      update public.assignments
+        set status = 'skipped', decided_at = now()
+      where id = r.id;
+      v_count := v_count + 1;
+      continue;
+    end if;
+
     -- Долг не «просрочивается»: закрываем молча, без штрафа и без записи в ленте.
     if r.kind = 'duty' or r.weight = 0 then
       update public.assignments
@@ -989,7 +1082,8 @@ begin
     where member_id = m.id and unlocked_at is not null;
 
   select count(*) into v_open from public.assignments
-    where assignee_id = m.id and status in ('pending', 'submitted')
+    where (assignee_id = m.id or assignee_id is null)
+      and status in ('pending', 'submitted')
       and (due_date = v_today or due_date is null or due_date < v_today);
 
   return jsonb_build_object(
@@ -1051,11 +1145,13 @@ begin
     select a.id, a.title, a.category, a.kind, a.weight, a.approval, a.status,
            a.due_at, a.due_date, a.coins_awarded, a.xp_awarded, a.source,
            a.submitted_at, a.decided_at,
+           (a.assignee_id is null) as in_pool,
+           (a.assignee_id = m.id) as mine,
            case when a.due_at is not null and now() > a.due_at and a.status = 'pending'
                 then true else false end as overdue,
            coalesce(a.due_at, a.created_at) as sort_due
     from public.assignments a
-    where a.assignee_id = m.id
+    where (a.assignee_id = m.id or a.assignee_id is null)
       and a.status <> 'skipped'
       and (a.due_date = v_day
            or a.due_date is null
@@ -1129,19 +1225,21 @@ begin
     into v_submitted
   from (
     select a.id, a.title, a.category, a.weight, a.status, a.due_at, a.submitted_at,
-           m.display_name as assignee_name, m.emoji as assignee_emoji, m.color as assignee_color
+           m.display_name as assignee_name, m.emoji as assignee_emoji, m.color as assignee_color,
+           false as in_pool
     from public.assignments a
     join public.members m on m.id = a.assignee_id
     where a.family_id = v_family and a.status = 'submitted'
   ) x;
 
-  select coalesce(jsonb_agg(to_jsonb(y) order by y.due_at nulls last), '[]'::jsonb)
+  select coalesce(jsonb_agg(to_jsonb(y) order by y.in_pool desc, y.due_at nulls last), '[]'::jsonb)
     into v_today_tasks
   from (
     select a.id, a.title, a.category, a.weight, a.status, a.due_at, a.approval,
-           m.display_name as assignee_name, m.emoji as assignee_emoji
+           m.display_name as assignee_name, coalesce(m.emoji, '📥') as assignee_emoji,
+           (a.assignee_id is null) as in_pool
     from public.assignments a
-    join public.members m on m.id = a.assignee_id
+    left join public.members m on m.id = a.assignee_id
     where a.family_id = v_family and a.due_date = v_today
   ) y;
 
@@ -1379,6 +1477,8 @@ begin
     'public.check_achievements(uuid)',
     'public.award_internal(uuid, uuid, boolean)',
     'public.complete_assignment(uuid)',
+    'public.claim_assignment(uuid)',
+    'public.release_assignment(uuid)',
     'public.approve_assignment(uuid)',
     'public.reject_assignment(uuid, text)',
     'public.waive_assignment(uuid)',
@@ -1641,6 +1741,20 @@ values
    '22222222-2222-2222-2222-222222222202', 'Разобрать холодильник', 'кухня', 'quest', 25,
    'monthly', null, '12:00', 'review', true)
 on conflict (id) do nothing;
+
+-- «Квесты» больше не закреплены за человеком: они попадают в общий котёл, и взять
+-- их может кто угодно. «Долг» (своя комната, своя посуда) остаётся личным.
+update public.task_templates set assignee_id = null where kind = 'quest';
+
+-- уже созданные на сегодня задачи переводим в общую очередь
+update public.assignments a
+   set assignee_id = null
+ where a.status = 'pending'
+   and a.template_id is not null
+   and exists (
+     select 1 from public.task_templates t
+     where t.id = a.template_id and t.assignee_id is null
+   );
 
 -- ───────────────────────────── призы ────────────────────────────────────────
 

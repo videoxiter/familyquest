@@ -1,6 +1,12 @@
 import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { completeTask, prettyError, type CompleteResult } from '../lib/api'
+import {
+  claimTask,
+  completeTask,
+  prettyError,
+  releaseTask,
+  type CompleteResult,
+} from '../lib/api'
 import { categoryEmoji } from '../lib/categories'
 import { deadlineHint, timeOf } from '../lib/format'
 import { useAction, useToday } from '../lib/queries'
@@ -11,30 +17,34 @@ export default function Today() {
   const me = useOutletContext<Profile>()
   const today = useToday()
   const complete = useAction<string, CompleteResult>(completeTask)
+  const claim = useAction<string, { id: string; status: string; mine: boolean }>(claimTask)
+  const release = useAction<string, { id: string; status: string; pool: boolean }>(releaseTask)
   const [flash, setFlash] = useState<string | null>(null)
 
   const tasks = today.data ?? []
-  const open = tasks.filter((t) => t.status === 'pending')
-  const done = tasks.filter((t) => t.status !== 'pending')
+  const mineOpen = tasks.filter(
+    (t) => !t.in_pool && (t.status === 'pending' || t.status === 'submitted'),
+  )
+  const pool = tasks.filter((t) => t.in_pool)
+  const done = tasks.filter(
+    (t) => !t.in_pool && t.status !== 'pending' && t.status !== 'submitted',
+  )
 
   const nextThreshold = me.next_level?.threshold ?? me.level.threshold
   const span = Math.max(1, nextThreshold - me.level.threshold)
   const progress = me.xp_total - me.level.threshold
 
-  async function onComplete(task: Task) {
+  function say(text: string, ms = 3400) {
+    setFlash(text)
+    window.setTimeout(() => setFlash(null), ms)
+  }
+
+  async function run(action: () => Promise<unknown>, ok?: string) {
     try {
-      const result = await complete.mutateAsync(task.id)
-      setFlash(
-        result.status === 'approved'
-          ? result.coins > 0
-            ? `«${task.title}» · +${result.coins} 🪙 · +${result.xp} опыта`
-            : `«${task.title}» закрыто · без баллов`
-          : `«${task.title}» отправлено на проверку`,
-      )
-      window.setTimeout(() => setFlash(null), 3200)
+      await action()
+      if (ok) say(ok)
     } catch (e) {
-      setFlash(prettyError(e))
-      window.setTimeout(() => setFlash(null), 4000)
+      say(prettyError(e), 4500)
     }
   }
 
@@ -65,8 +75,8 @@ export default function Today() {
       )}
 
       <section>
-        <SectionTitle action={<span className="text-xs text-mist-500">{open.length} в работе</span>}>
-          На сегодня
+        <SectionTitle action={<span className="text-xs text-mist-500">{mineOpen.length} у тебя</span>}>
+          Мои задачи
         </SectionTitle>
 
         {today.isLoading && (
@@ -75,17 +85,59 @@ export default function Today() {
           </div>
         )}
 
-        {!today.isLoading && open.length === 0 && (
+        {!today.isLoading && mineOpen.length === 0 && (
           <Empty>
             {tasks.length === 0
               ? 'На сегодня задач нет. Родитель добавит их во вкладке «Админ» → «Задачи» → «+ Новая задача».'
-              : 'На сегодня всё закрыто. Можно выдохнуть — или заглянуть в призы.'}
+              : pool.length > 0
+                ? 'Пока ничего не взято. Выбери задачу из общей очереди ниже — кто первый взял, тот и выполняет.'
+                : 'Все дела на сегодня сделаны.'}
           </Empty>
         )}
 
         <div className="space-y-2">
-          {open.map((task) => (
-            <TaskCard key={task.id} task={task} onComplete={() => void onComplete(task)} busy={complete.isPending} />
+          {mineOpen.map((task) => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              onComplete={() =>
+                void run(async () => {
+                  const result = await complete.mutateAsync(task.id)
+                  say(
+                    result.status === 'approved'
+                      ? result.coins > 0
+                        ? `«${task.title}» · +${result.coins} 🪙 · +${result.xp} опыта`
+                        : `«${task.title}» закрыто · без баллов`
+                      : `«${task.title}» отправлено на проверку`,
+                  )
+                })
+              }
+              onRelease={() =>
+                void run(() => release.mutateAsync(task.id), `«${task.title}» вернулась в общую очередь`)
+              }
+              busy={complete.isPending || release.isPending}
+            />
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <SectionTitle action={<span className="text-xs text-mist-500">{pool.length} свободно</span>}>
+          Общая очередь
+        </SectionTitle>
+
+        {!today.isLoading && pool.length === 0 && (
+          <Empty>Свободных задач нет — всё разобрали.</Empty>
+        )}
+
+        <div className="space-y-2">
+          {pool.map((task) => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              onClaim={() => void run(() => claim.mutateAsync(task.id), `Взял «${task.title}»`)}
+              busy={claim.isPending}
+            />
           ))}
         </div>
       </section>
@@ -95,7 +147,7 @@ export default function Today() {
           <SectionTitle>Завершённые</SectionTitle>
           <div className="space-y-2">
             {done.map((task) => (
-              <TaskCard key={task.id} task={task} onComplete={() => undefined} busy={false} />
+              <TaskCard key={task.id} task={task} busy={false} />
             ))}
           </div>
         </section>
@@ -112,7 +164,19 @@ const STATUS_LABEL: Record<string, string> = {
   skipped: 'пропущено',
 }
 
-function TaskCard({ task, onComplete, busy }: { task: Task; onComplete: () => void; busy: boolean }) {
+function TaskCard({
+  task,
+  onComplete,
+  onClaim,
+  onRelease,
+  busy,
+}: {
+  task: Task
+  onComplete?: () => void
+  onClaim?: () => void
+  onRelease?: () => void
+  busy: boolean
+}) {
   const isDuty = task.kind === 'duty' || task.weight === 0
   const hint = task.status === 'pending' ? deadlineHint(task.due_at) : null
 
@@ -123,9 +187,7 @@ function TaskCard({ task, onComplete, busy }: { task: Task; onComplete: () => vo
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <h3 className={task.status === 'approved' && !isDuty ? 'font-medium' : 'font-medium'}>
-              {task.title}
-            </h3>
+            <h3 className="font-medium">{task.title}</h3>
             {isDuty ? (
               <Badge tone="muted">долг</Badge>
             ) : (
@@ -137,6 +199,7 @@ function TaskCard({ task, onComplete, busy }: { task: Task; onComplete: () => vo
             <span>{task.category}</span>
             {task.due_at && <span>· до {timeOf(task.due_at)}</span>}
             {hint && <span>· {hint}</span>}
+            {task.in_pool && <span>· в очереди</span>}
             {task.status !== 'pending' && (
               <span className="text-mist-300">· {STATUS_LABEL[task.status] ?? task.status}</span>
             )}
@@ -145,15 +208,32 @@ function TaskCard({ task, onComplete, busy }: { task: Task; onComplete: () => vo
             )}
           </div>
 
-          {task.status === 'pending' && (
-            <Button
-              className="mt-2.5 w-full"
-              variant={isDuty ? 'soft' : 'primary'}
-              onClick={onComplete}
-              disabled={busy}
-            >
-              {task.approval === 'review' ? 'Сделал — на проверку' : 'Выполнил'}
+          {task.status === 'pending' && onClaim && (
+            <Button className="mt-2.5 w-full" onClick={onClaim} disabled={busy}>
+              Взять
             </Button>
+          )}
+
+          {task.status === 'pending' && onComplete && (
+            <>
+              <Button
+                className="mt-2.5 w-full"
+                variant={isDuty ? 'soft' : 'primary'}
+                onClick={onComplete}
+                disabled={busy}
+              >
+                {task.approval === 'review' ? 'Сделал — на проверку' : 'Выполнил'}
+              </Button>
+              {onRelease && (
+                <button
+                  type="button"
+                  onClick={onRelease}
+                  className="mt-1.5 w-full text-center text-xs text-mist-500 hover:text-mist-300"
+                >
+                  Отказаться и вернуть в очередь
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>

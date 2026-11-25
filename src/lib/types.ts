@@ -40,6 +40,10 @@ export type Task = {
   submitted_at: string | null
   decided_at: string | null
   overdue: boolean
+  /** Задача лежит в общей очереди: исполнителя ещё нет. */
+  in_pool: boolean
+  /** Задача закреплена за мной. */
+  mine: boolean
 }
 
 export type LoginMember = {
@@ -128,8 +132,10 @@ export type AdminTaskRow = {
   status: TaskStatus
   due_at: string | null
   approval: 'auto' | 'review'
-  assignee_name: string
+  /** null — задачу ещё никто не взял (общая очередь). */
+  assignee_name: string | null
   assignee_emoji: string
+  in_pool: boolean
 }
 
 export type AdminQueue = {

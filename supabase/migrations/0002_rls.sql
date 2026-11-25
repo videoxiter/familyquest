@@ -112,13 +112,17 @@ create policy templates_admin_delete on public.task_templates
   for delete to authenticated
   using (public.is_admin() and family_id = public.current_family_id());
 
--- assignments: видно свои или всю семью админу; запись — только через RPC
+-- assignments: свои задачи + общая очередь видны всем; запись — только через RPC
 drop policy if exists assignments_select on public.assignments;
 create policy assignments_select on public.assignments
   for select to authenticated
   using (
     family_id = public.current_family_id()
-    and (assignee_id = public.current_member_id() or public.is_admin())
+    and (
+      assignee_id = public.current_member_id()
+      or assignee_id is null
+      or public.is_admin()
+    )
   );
 
 -- ledger: свои операции или все админу
