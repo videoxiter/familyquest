@@ -76,7 +76,11 @@ export default function Today() {
         )}
 
         {!today.isLoading && open.length === 0 && (
-          <Empty>На сегодня всё закрыто. Можно выдохнуть — или заглянуть в призы.</Empty>
+          <Empty>
+            {tasks.length === 0
+              ? 'На сегодня задач нет. Родитель добавит их во вкладке «Админ» → «Задачи» → «+ Новая задача».'
+              : 'На сегодня всё закрыто. Можно выдохнуть — или заглянуть в призы.'}
+          </Empty>
         )}
 
         <div className="space-y-2">
@@ -88,7 +92,7 @@ export default function Today() {
 
       {done.length > 0 && (
         <section>
-          <SectionTitle>Закрытые</SectionTitle>
+          <SectionTitle>Завершённые</SectionTitle>
           <div className="space-y-2">
             {done.map((task) => (
               <TaskCard key={task.id} task={task} onComplete={() => undefined} busy={false} />

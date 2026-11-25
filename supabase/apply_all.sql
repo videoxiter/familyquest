@@ -839,7 +839,15 @@ begin
                                   created_by, kind, weight, approval, due_date, due_at, source)
   select t.family_id, t.id, t.title, t.category, t.assignee_id,
          t.created_by, t.kind, t.base_weight, t.approval, d.day,
-         ((d.day + coalesce(t.due_time, time '23:59')) at time zone f.timezone),
+         -- Если день сегодняшний, а время дедлайна уже прошло (например, задачи
+         -- создаются в 21:00, а «завтрак» был в 08:30) — создаём задачу БЕЗ дедлайна,
+         -- иначе она родится сразу просроченной.
+         case
+           when d.day = (now() at time zone f.timezone)::date
+                and ((d.day + coalesce(t.due_time, time '23:59')) at time zone f.timezone) < now()
+             then null
+           else ((d.day + coalesce(t.due_time, time '23:59')) at time zone f.timezone)
+         end,
          'template'
   from public.task_templates t
   join public.families f on f.id = t.family_id
@@ -879,13 +887,22 @@ declare
   v_inserted int;
 begin
   for r in
-    select a.id, a.family_id, a.assignee_id, a.title, a.weight,
+    select a.id, a.family_id, a.assignee_id, a.title, a.weight, a.kind,
            coalesce((f.settings ->> 'fines_enabled')::boolean, false) as fines
     from public.assignments a
     join public.families f on f.id = a.family_id
     where a.status = 'pending' and a.due_at is not null and a.due_at < now()
     for update of a skip locked
   loop
+    -- Долг не «просрочивается»: закрываем молча, без штрафа и без записи в ленте.
+    if r.kind = 'duty' or r.weight = 0 then
+      update public.assignments
+        set status = 'skipped', decided_at = now()
+      where id = r.id;
+      v_count := v_count + 1;
+      continue;
+    end if;
+
     update public.assignments
       set status = 'missed', decided_at = now()
     where id = r.id;
@@ -1605,7 +1622,24 @@ values
    'weekly', array[6], '11:00', 'review', true),
   ('33333333-3333-3333-3333-333333333315', '11111111-1111-1111-1111-111111111111',
    '22222222-2222-2222-2222-222222222203', 'Полить цветы', 'дом', 'quest', 8,
-   'weekly', array[2], '17:00', 'auto', true)
+   'weekly', array[2], '17:00', 'auto', true),
+
+  -- ещё несколько ежедневных дел родителям, чтобы доска не пустовала
+  ('33333333-3333-3333-3333-333333333316', '11111111-1111-1111-1111-111111111111',
+   '22222222-2222-2222-2222-222222222201', 'Приготовить завтрак', 'кухня', 'quest', 20,
+   'daily', null, '08:30', 'review', true),
+  ('33333333-3333-3333-3333-333333333317', '11111111-1111-1111-1111-111111111111',
+   '22222222-2222-2222-2222-222222222201', 'Вынести мусор вечером', 'мусор', 'quest', 10,
+   'daily', null, '19:30', 'auto', true),
+  ('33333333-3333-3333-3333-333333333318', '11111111-1111-1111-1111-111111111111',
+   '22222222-2222-2222-2222-222222222201', 'Помыть посуду после ужина', 'кухня', 'quest', 15,
+   'daily', null, '20:45', 'auto', true),
+  ('33333333-3333-3333-3333-333333333319', '11111111-1111-1111-1111-111111111111',
+   '22222222-2222-2222-2222-222222222202', 'Помыть посуду после завтрака', 'кухня', 'quest', 12,
+   'daily', null, '09:30', 'auto', true),
+  ('33333333-3333-3333-3333-333333333320', '11111111-1111-1111-1111-111111111111',
+   '22222222-2222-2222-2222-222222222202', 'Разобрать холодильник', 'кухня', 'quest', 25,
+   'monthly', null, '12:00', 'review', true)
 on conflict (id) do nothing;
 
 -- ───────────────────────────── призы ────────────────────────────────────────
@@ -1642,5 +1676,11 @@ where not exists (
 
 -- ───────────────────────────── заготовки на сегодня ─────────────────────────
 -- Материализуем задачи на сегодня, чтобы после установки не было пустого экрана.
+
+-- Разовая уборка: «долг» больше не помечается как просроченный (см. close_overdue),
+-- поэтому старые записи переводим в нейтральное «пропущено».
+update public.assignments
+   set status = 'skipped'
+ where status = 'missed' and (kind = 'duty' or weight = 0);
 
 select public.materialize_daily('11111111-1111-1111-1111-111111111111', null);

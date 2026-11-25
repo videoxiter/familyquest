@@ -353,7 +353,15 @@ begin
                                   created_by, kind, weight, approval, due_date, due_at, source)
   select t.family_id, t.id, t.title, t.category, t.assignee_id,
          t.created_by, t.kind, t.base_weight, t.approval, d.day,
-         ((d.day + coalesce(t.due_time, time '23:59')) at time zone f.timezone),
+         -- Если день сегодняшний, а время дедлайна уже прошло (например, задачи
+         -- создаются в 21:00, а «завтрак» был в 08:30) — создаём задачу БЕЗ дедлайна,
+         -- иначе она родится сразу просроченной.
+         case
+           when d.day = (now() at time zone f.timezone)::date
+                and ((d.day + coalesce(t.due_time, time '23:59')) at time zone f.timezone) < now()
+             then null
+           else ((d.day + coalesce(t.due_time, time '23:59')) at time zone f.timezone)
+         end,
          'template'
   from public.task_templates t
   join public.families f on f.id = t.family_id
@@ -393,13 +401,22 @@ declare
   v_inserted int;
 begin
   for r in
-    select a.id, a.family_id, a.assignee_id, a.title, a.weight,
+    select a.id, a.family_id, a.assignee_id, a.title, a.weight, a.kind,
            coalesce((f.settings ->> 'fines_enabled')::boolean, false) as fines
     from public.assignments a
     join public.families f on f.id = a.family_id
     where a.status = 'pending' and a.due_at is not null and a.due_at < now()
     for update of a skip locked
   loop
+    -- Долг не «просрочивается»: закрываем молча, без штрафа и без записи в ленте.
+    if r.kind = 'duty' or r.weight = 0 then
+      update public.assignments
+        set status = 'skipped', decided_at = now()
+      where id = r.id;
+      v_count := v_count + 1;
+      continue;
+    end if;
+
     update public.assignments
       set status = 'missed', decided_at = now()
     where id = r.id;
