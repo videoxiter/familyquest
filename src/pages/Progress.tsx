@@ -1,14 +1,18 @@
 import { useOutletContext } from 'react-router-dom'
+import clsx from 'clsx'
 import { signOut } from '../lib/api'
+import { playSound, playVoice, setMusicEnabled, setSoundEnabled } from '../lib/audio'
+import { useAudio } from '../lib/useAudio'
 import { relative } from '../lib/format'
 import { useAchievements, useLedger } from '../lib/queries'
 import type { Profile } from '../lib/types'
-import { Badge, Button, Card, Empty, ProgressBar, SectionTitle, Spinner } from '../components/ui'
+import { Avatar, Badge, Button, Card, Empty, ProgressBar, SectionTitle, Spinner } from '../components/ui'
 
 export default function Progress() {
   const me = useOutletContext<Profile>()
   const achievements = useAchievements(me.id)
   const ledger = useLedger(me.id)
+  const { music, sound } = useAudio()
 
   const nextThreshold = me.next_level?.threshold ?? me.level.threshold
   const span = Math.max(1, nextThreshold - me.level.threshold)
@@ -33,12 +37,7 @@ export default function Progress() {
     <div className="space-y-5">
       <Card>
         <div className="flex items-center gap-3">
-          <span
-            className="flex h-14 w-14 items-center justify-center rounded-2xl text-3xl"
-            style={{ backgroundColor: `${me.color}26` }}
-          >
-            {me.emoji}
-          </span>
+          <Avatar emoji={me.emoji} color={me.color} src={me.avatar_url} size="lg" />
           <div className="min-w-0">
             <div className="text-lg font-semibold">{me.display_name}</div>
             <div className="text-sm text-mist-500">
@@ -133,6 +132,38 @@ export default function Progress() {
         </div>
       </section>
 
+      <section>
+        <SectionTitle>Звук</SectionTitle>
+        <Card className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm font-medium">Музыка</div>
+              <div className="text-xs text-mist-500">Тихий игровой фон</div>
+            </div>
+            <Toggle checked={music} onChange={setMusicEnabled} />
+          </div>
+
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-sm font-medium">Звуки и голоса</div>
+              <div className="text-xs text-mist-500">Награды, уровни, реплики семьи</div>
+            </div>
+            <Toggle checked={sound} onChange={setSoundEnabled} />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              playSound('award')
+              playVoice('task_done', me.login, me.login)
+            }}
+            className="text-xs text-accent underline-offset-4 hover:underline"
+          >
+            Проверить звук
+          </button>
+        </Card>
+      </section>
+
       <div className="pt-2">
         <Button variant="ghost" className="w-full" onClick={() => void signOut()}>
           Выйти из аккаунта
@@ -148,6 +179,28 @@ function Stat({ label, value }: { label: string; value: string }) {
       <div className="text-sm font-semibold">{value}</div>
       <div className="text-[11px] text-mist-500">{label}</div>
     </div>
+  )
+}
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (value: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={clsx(
+        'relative h-7 w-12 shrink-0 rounded-full transition-colors',
+        checked ? 'bg-accent' : 'bg-white/15',
+      )}
+    >
+      <span
+        className={clsx(
+          'absolute top-1 h-5 w-5 rounded-full bg-white transition-all',
+          checked ? 'left-6' : 'left-1',
+        )}
+      />
+    </button>
   )
 }
 

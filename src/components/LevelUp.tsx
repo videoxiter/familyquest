@@ -54,7 +54,7 @@ export function LevelUp({
 
       <div className="anim-celebrate w-full max-w-sm rounded-3xl border border-accent/40 bg-ink-900/95 p-6 text-center shadow-2xl">
         <Art
-          src="./art/level-up.png"
+          src="./art/level-up.webp"
           alt=""
           className="mx-auto mb-2 h-32 w-32 object-contain"
         />

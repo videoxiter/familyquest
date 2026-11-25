@@ -44,7 +44,7 @@ export default function Rewards() {
         </p>
       </Card>
 
-      <Art src="./art/rewards.png" alt="" className="mx-auto h-32 w-auto object-contain" />
+      <Art src="./art/rewards.webp" alt="" className="mx-auto h-32 w-auto object-contain" />
 
       {flash && (
         <div className="animate-pop rounded-xl border border-accent/40 bg-accent-soft px-3 py-2 text-sm text-accent">

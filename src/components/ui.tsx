@@ -95,11 +95,13 @@ export function Badge({
 export function Avatar({
   emoji,
   color,
+  src,
   size = 'md',
   className,
 }: {
   emoji: string
   color: string
+  src?: string | null
   size?: 'sm' | 'md' | 'lg'
   className?: string
 }) {
@@ -108,6 +110,22 @@ export function Avatar({
     md: 'h-12 w-12 text-2xl',
     lg: 'h-16 w-16 text-3xl',
   }
+
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt=""
+        aria-hidden
+        className={clsx(
+          'shrink-0 rounded-full border border-white/15 object-cover',
+          sizes[size],
+          className,
+        )}
+      />
+    )
+  }
+
   return (
     <span
       className={clsx(

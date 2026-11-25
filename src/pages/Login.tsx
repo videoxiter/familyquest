@@ -58,7 +58,7 @@ export default function Login() {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-5 py-10">
       <div className="mb-8">
-        <Art src="./art/hero.png" alt="" className="mb-5 w-full rounded-3xl object-contain" />
+        <Art src="./art/hero.webp" alt="" className="mb-5 w-full rounded-3xl object-contain" />
         <h1 className="text-3xl font-bold tracking-tight">FamilyQuest</h1>
         <p className="mt-1 text-mist-500">Семейные дела, уровни и призы</p>
       </div>
@@ -80,7 +80,7 @@ export default function Login() {
                 onClick={() => choose(member)}
                 className="flex flex-col items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-5 transition-colors hover:bg-white/[0.08]"
               >
-                <Avatar emoji={member.emoji} color={member.color} size="lg" />
+                <Avatar emoji={member.emoji} color={member.color} src={member.avatar_url} size="lg" />
                 <span className="font-medium">{member.display_name}</span>
                 {member.role === 'admin' && <span className="text-xs text-mist-500">родитель</span>}
               </button>
@@ -113,7 +113,7 @@ export default function Login() {
       {mode === 'password' && selected && (
         <form onSubmit={submitPassword} className="space-y-4">
           <div className="flex items-center gap-3">
-            <Avatar emoji={selected.emoji} color={selected.color} />
+            <Avatar emoji={selected.emoji} color={selected.color} src={selected.avatar_url} />
             <div>
               <div className="font-medium">{selected.display_name}</div>
               <div className="text-sm text-mist-500">введи свой код</div>

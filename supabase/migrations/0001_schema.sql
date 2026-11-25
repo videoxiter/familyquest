@@ -25,6 +25,7 @@ create table if not exists public.members (
   display_name text not null,
   emoji       text not null default '🙂',
   color       text not null default '#6aa8ff',
+  avatar_url  text,
   birth_date  date,
   xp_total    integer not null default 0 check (xp_total >= 0),
   coins       integer not null default 0 check (coins >= 0),
@@ -33,6 +34,9 @@ create table if not exists public.members (
 );
 
 create index if not exists members_family_idx on public.members (family_id) where deleted_at is null;
+
+-- Миграция для уже установленных баз
+alter table public.members add column if not exists avatar_url text;
 
 -- ─────────────────────────────── задачи ─────────────────────────────────────
 

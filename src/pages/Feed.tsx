@@ -56,7 +56,7 @@ export default function Feed() {
           return (
             <Card key={item.id} className="p-3.5">
               <div className="flex gap-3">
-                <Avatar emoji={item.actor_emoji ?? '🙂'} color={item.actor_color ?? '#6aa8ff'} size="sm" />
+                <Avatar emoji={item.actor_emoji ?? '🙂'} color={item.actor_color ?? '#6aa8ff'} src={item.actor_avatar_url} size="sm" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm leading-snug">
                     <span className="font-medium">{item.actor_name ?? 'Кто-то'}</span>{' '}

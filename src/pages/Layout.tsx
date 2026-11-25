@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import clsx from 'clsx'
 import { signOut } from '../lib/api'
+import { playSound, playVoice } from '../lib/audio'
 import { useProfile } from '../lib/queries'
 import { Avatar, Button, Spinner } from '../components/ui'
 import { LevelUp } from '../components/LevelUp'
@@ -17,6 +18,8 @@ export default function Layout() {
     if (!level) return
     if (previousLevel.current !== null && level.idx > previousLevel.current) {
       setCelebrate({ idx: level.idx, name: level.name })
+      playSound('levelup')
+      playVoice('level_up', profile.data?.login ?? null, profile.data?.login ?? null)
     }
     previousLevel.current = level.idx
   }, [profile.data])
@@ -57,7 +60,7 @@ export default function Layout() {
     <div className="min-h-dvh">
       <header className="sticky top-0 z-10 border-b border-white/10 bg-ink-950/85 backdrop-blur">
         <div className="mx-auto flex max-w-md items-center gap-3 px-4 py-3">
-          <Avatar emoji={me.emoji} color={me.color} size="sm" />
+          <Avatar emoji={me.emoji} color={me.color} src={me.avatar_url} size="sm" />
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-semibold">{me.display_name}</div>
             <div className="truncate text-xs text-mist-500">

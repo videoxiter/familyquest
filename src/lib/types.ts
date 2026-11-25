@@ -7,6 +7,7 @@ export type Profile = {
   display_name: string
   emoji: string
   color: string
+  avatar_url: string | null
   role: Role
   login: string
   birth_date: string | null
@@ -51,6 +52,7 @@ export type LoginMember = {
   display_name: string
   emoji: string
   color: string
+  avatar_url: string | null
   role: Role
 }
 
@@ -62,6 +64,7 @@ export type FeedItem = {
   actor_name: string | null
   actor_emoji: string | null
   actor_color: string | null
+  actor_avatar_url: string | null
   subject_name: string | null
   reactions: { emoji: string; member: string }[]
 }
@@ -116,6 +119,7 @@ export type AdminMember = {
   display_name: string
   emoji: string
   color: string
+  avatar_url: string | null
   role: Role
   birth_date: string | null
   age: number | null

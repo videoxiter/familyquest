@@ -28,6 +28,12 @@ insert into public.streaks (member_id)
 select id from public.members where family_id = '11111111-1111-1111-1111-111111111111'
 on conflict (member_id) do nothing;
 
+-- Портреты из public/art (см. ART.md). Путь относительный — работает и в корне домена,
+-- и в подпапке GitHub Pages.
+update public.members set avatar_url = './art/avatar-papa.webp'    where login = 'papa';
+update public.members set avatar_url = './art/avatar-mama.webp'    where login = 'mama';
+update public.members set avatar_url = './art/avatar-alyosha.webp' where login = 'alyosha';
+
 -- ───────────────────────────── уровни ───────────────────────────────────────
 -- Прогресс монотонный: опыт не снимается, поэтому понизить уровень нельзя.
 

@@ -533,13 +533,13 @@ $$;
 
 -- Список для экрана входа: доступен без авторизации, только имя/аватар.
 create or replace function public.login_members()
-returns table (login text, display_name text, emoji text, color text, role text)
+returns table (login text, display_name text, emoji text, color text, avatar_url text, role text)
 language sql
 stable
 security definer
 set search_path = public
 as $$
-  select m.login, m.display_name, m.emoji, m.color, m.role
+  select m.login, m.display_name, m.emoji, m.color, m.avatar_url, m.role
   from public.members m
   where m.user_id is not null and m.deleted_at is null
   order by case when m.role = 'admin' then 0 else 1 end, m.created_at;
@@ -592,6 +592,7 @@ begin
     'display_name', m.display_name,
     'emoji', m.emoji,
     'color', m.color,
+    'avatar_url', m.avatar_url,
     'role', m.role,
     'login', m.login,
     'birth_date', m.birth_date,
@@ -685,6 +686,7 @@ begin
            actor.display_name as actor_name,
            actor.emoji as actor_emoji,
            actor.color as actor_color,
+           actor.avatar_url as actor_avatar_url,
            subject.display_name as subject_name,
            coalesce((
              select jsonb_agg(jsonb_build_object('emoji', r.emoji, 'member', r.member_id))
@@ -747,7 +749,7 @@ begin
   select coalesce(jsonb_agg(to_jsonb(z) order by z.display_name), '[]'::jsonb)
     into v_members
   from (
-    select m.id, m.login, m.display_name, m.emoji, m.color, m.role, m.birth_date,
+    select m.id, m.login, m.display_name, m.emoji, m.color, m.avatar_url, m.role, m.birth_date,
            m.coins, m.xp_total, m.user_id is not null as has_account,
            case when m.birth_date is null then null
                 else extract(year from age(m.birth_date))::int end as age

@@ -34,6 +34,7 @@ create table if not exists public.members (
   display_name text not null,
   emoji       text not null default '🙂',
   color       text not null default '#6aa8ff',
+  avatar_url  text,
   birth_date  date,
   xp_total    integer not null default 0 check (xp_total >= 0),
   coins       integer not null default 0 check (coins >= 0),
@@ -42,6 +43,9 @@ create table if not exists public.members (
 );
 
 create index if not exists members_family_idx on public.members (family_id) where deleted_at is null;
+
+-- Миграция для уже установленных баз
+alter table public.members add column if not exists avatar_url text;
 
 -- ─────────────────────────────── задачи ─────────────────────────────────────
 
@@ -1032,13 +1036,13 @@ $$;
 
 -- Список для экрана входа: доступен без авторизации, только имя/аватар.
 create or replace function public.login_members()
-returns table (login text, display_name text, emoji text, color text, role text)
+returns table (login text, display_name text, emoji text, color text, avatar_url text, role text)
 language sql
 stable
 security definer
 set search_path = public
 as $$
-  select m.login, m.display_name, m.emoji, m.color, m.role
+  select m.login, m.display_name, m.emoji, m.color, m.avatar_url, m.role
   from public.members m
   where m.user_id is not null and m.deleted_at is null
   order by case when m.role = 'admin' then 0 else 1 end, m.created_at;
@@ -1091,6 +1095,7 @@ begin
     'display_name', m.display_name,
     'emoji', m.emoji,
     'color', m.color,
+    'avatar_url', m.avatar_url,
     'role', m.role,
     'login', m.login,
     'birth_date', m.birth_date,
@@ -1184,6 +1189,7 @@ begin
            actor.display_name as actor_name,
            actor.emoji as actor_emoji,
            actor.color as actor_color,
+           actor.avatar_url as actor_avatar_url,
            subject.display_name as subject_name,
            coalesce((
              select jsonb_agg(jsonb_build_object('emoji', r.emoji, 'member', r.member_id))
@@ -1246,7 +1252,7 @@ begin
   select coalesce(jsonb_agg(to_jsonb(z) order by z.display_name), '[]'::jsonb)
     into v_members
   from (
-    select m.id, m.login, m.display_name, m.emoji, m.color, m.role, m.birth_date,
+    select m.id, m.login, m.display_name, m.emoji, m.color, m.avatar_url, m.role, m.birth_date,
            m.coins, m.xp_total, m.user_id is not null as has_account,
            case when m.birth_date is null then null
                 else extract(year from age(m.birth_date))::int end as age
@@ -1634,6 +1640,12 @@ on conflict (id) do nothing;
 insert into public.streaks (member_id)
 select id from public.members where family_id = '11111111-1111-1111-1111-111111111111'
 on conflict (member_id) do nothing;
+
+-- Портреты из public/art (см. ART.md). Путь относительный — работает и в корне домена,
+-- и в подпапке GitHub Pages.
+update public.members set avatar_url = './art/avatar-papa.webp'    where login = 'papa';
+update public.members set avatar_url = './art/avatar-mama.webp'    where login = 'mama';
+update public.members set avatar_url = './art/avatar-alyosha.webp' where login = 'alyosha';
 
 -- ───────────────────────────── уровни ───────────────────────────────────────
 -- Прогресс монотонный: опыт не снимается, поэтому понизить уровень нельзя.

@@ -9,6 +9,7 @@ import {
 } from '../lib/api'
 import { categoryEmoji } from '../lib/categories'
 import { deadlineHint, timeOf } from '../lib/format'
+import { playSound, playVoice } from '../lib/audio'
 import { useAction, useToday } from '../lib/queries'
 import type { Profile, Task } from '../lib/types'
 import { Art } from '../components/Art'
@@ -45,6 +46,8 @@ export default function Today() {
   function showAward(task: Task, result: CompleteResult) {
     setAward({ title: task.title, coins: result.coins, xp: result.xp, key: Date.now() })
     window.setTimeout(() => setAward(null), 2300)
+    playSound('award')
+    if (result.coins > 0) playVoice('task_done', me.login, me.login)
   }
 
   async function run(action: () => Promise<unknown>, ok?: string) {
@@ -99,7 +102,7 @@ export default function Today() {
         {!today.isLoading && mineOpen.length === 0 && (
           <div className="rounded-2xl border border-dashed border-white/10 px-4 py-8">
             <Art
-              src="./art/empty-tasks.png"
+              src="./art/empty-tasks.webp"
               alt=""
               className="mx-auto mb-3 h-28 w-auto object-contain opacity-90"
             />
@@ -133,10 +136,7 @@ export default function Today() {
                   })
                 }
                 onRelease={() =>
-                  void run(
-                    () => release.mutateAsync(task.id),
-                    `«${task.title}» вернулась в общую очередь`,
-                  )
+                  void run(() => release.mutateAsync(task.id), `«${task.title}» вернулась в общую очередь`)
                 }
                 busy={complete.isPending || release.isPending}
               />
@@ -163,7 +163,14 @@ export default function Today() {
             >
               <TaskCard
                 task={task}
-                onClaim={() => void run(() => claim.mutateAsync(task.id), `Взял «${task.title}»`)}
+                onClaim={() =>
+                  void run(async () => {
+                    await claim.mutateAsync(task.id)
+                    playSound('claim')
+                    playVoice('task_claimed', me.login, me.login)
+                    say(`Взял «${task.title}»`)
+                  })
+                }
                 busy={claim.isPending}
               />
             </div>

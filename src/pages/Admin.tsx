@@ -14,6 +14,7 @@ import {
   type CompleteResult,
 } from '../lib/api'
 import { CATEGORIES, categoryEmoji } from '../lib/categories'
+import { playSound, playVoice } from '../lib/audio'
 import { dayLabel, timeOf } from '../lib/format'
 import { useAction, useAdminQueue } from '../lib/queries'
 import type { AdminMember, AdminTaskRow, NewTemplate, Profile } from '../lib/types'
@@ -121,7 +122,14 @@ export default function Admin() {
                 <Button
                   className="flex-1"
                   disabled={approve.isPending}
-                  onClick={() => void run(() => approve.mutateAsync(task.id), 'Задача закрыта')}
+                  onClick={() =>
+                    void run(async () => {
+                      await approve.mutateAsync(task.id)
+                      playSound('approve')
+                      playVoice('task_approved', me.login, task.assignee_name ?? null)
+                      say('Задача закрыта')
+                    })
+                  }
                 >
                   Одобрить
                 </Button>
@@ -129,7 +137,13 @@ export default function Admin() {
                   className="flex-1"
                   variant="ghost"
                   disabled={reject.isPending}
-                  onClick={() => void run(() => reject.mutateAsync(task.id), 'Возвращено исполнителю')}
+                  onClick={() =>
+                    void run(async () => {
+                      await reject.mutateAsync(task.id)
+                      playSound('reject')
+                      say('Возвращено исполнителю')
+                    })
+                  }
                 >
                   Вернуть
                 </Button>

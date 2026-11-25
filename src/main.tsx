@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { HashRouter } from 'react-router-dom'
 import App from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { loadVoices, unlockAudio } from './lib/audio'
 import { SessionProvider } from './session'
 import './styles.css'
 
@@ -40,3 +41,8 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
       .catch(() => undefined)
   })
 }
+
+// Звук: браузер разрешает его только после действия пользователя.
+document.addEventListener('pointerdown', unlockAudio, { once: true })
+document.addEventListener('keydown', unlockAudio, { once: true })
+void loadVoices()
