@@ -51,15 +51,18 @@ writeFileSync(out, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
 const count = Object.keys(manifest).length
 console.log(`манифест: ${count} реплик`)
 if (skipped.length > 0) {
-  console.log(`пропущены (имя не по схеме <событие>-<papa|mama|alyosha>): ${skipped.join(', ')}`)
+  console.log(`пропущены (имя не по схеме <событие>-<1|2>-<papa|mama|alyosha>): ${skipped.join(', ')}`)
 }
 
 // Проверяем, что события вообще известны приложению
 const known = new Set(
   readFileSync(join(root, 'src', 'lib', 'audio.ts'), 'utf8').match(/task_done|task_claimed|task_approved|task_rejected|task_late|level_up|achievement|streak_7|reward_redeemed|member_joined|daily_reminder/g) ?? [],
 )
-const unknown = [...new Set(Object.keys(manifest).map((key) => key.replace(/-(papa|mama|alyosha)$/, '')))]
-  .filter((event) => !known.has(event))
+const unknown = [
+  ...new Set(
+    Object.keys(manifest).map((key) => key.replace(/-[12]-(papa|mama|alyosha)$/, '')),
+  ),
+].filter((event) => !known.has(event))
 if (unknown.length > 0) {
   console.log(`⚠ неизвестные события (в коде таких нет): ${unknown.join(', ')}`)
 }
