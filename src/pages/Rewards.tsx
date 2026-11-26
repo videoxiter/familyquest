@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { prettyError, redeemReward } from '../lib/api'
+import { playSound } from '../lib/audio'
 import { useAction, useRewards } from '../lib/queries'
 import type { Profile } from '../lib/types'
 import { Art } from '../components/Art'
@@ -21,6 +22,8 @@ export default function Rewards() {
   async function onRedeem(id: string, title: string, price: number) {
     try {
       await redeem.mutateAsync(id)
+      // у обмена приза своя короткая музыкальная отбивка, без голосов
+      playSound('award')
       setFlash(`«${title}» — твой. Списано ${price} 🪙. Скажи родителям, они подтвердят.`)
       window.setTimeout(() => setFlash(null), 4000)
     } catch (e) {

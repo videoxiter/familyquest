@@ -28,13 +28,14 @@ const skipped = []
 
 for (const file of files.sort()) {
   const base = file.replace(/\.[^.]+$/, '')
-  const match = base.match(/^([a-z0-9_]+)-(papa|mama|alyosha)$/i)
+  // <событие>-<1|2>-<говорящий>, например task_done-2-alyosha
+  const match = base.match(/^([a-z0-9_]+)-([12])-(papa|mama|alyosha)$/i)
   if (!match) {
     skipped.push(file)
     continue
   }
-  const [, event, speaker] = match
-  manifest[`${event.toLowerCase()}-${speaker.toLowerCase()}`] = `./audio/voice/${file}`
+  const [, event, line, speaker] = match
+  manifest[`${event.toLowerCase()}-${line}-${speaker.toLowerCase()}`] = `./audio/voice/${file}`
 }
 
 // Предупреждение о слишком больших файлах

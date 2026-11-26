@@ -138,38 +138,55 @@ export function loadVoices(): Promise<void> {
 
 const SPEAKERS = ['papa', 'mama', 'alyosha']
 
+/**
+ * На каждое событие человек слышит ДВУХ других членов семьи:
+ * первый говорит реплику «1», второй — реплику «2».
+ * Файлы называются <событие>-<1|2>-<говорящий>.wav, поэтому свой голос не звучит.
+ */
 export function playVoice(
   event: string,
   listenerLogin: string | null,
-  actorLogin: string | null = null,
+  _actorLogin: string | null = null,
 ): void {
   if (!soundEnabled) return
   if (Object.keys(voiceMap).length === 0) return
 
   const others = SPEAKERS.filter((speaker) => speaker !== listenerLogin)
-  const order =
-    actorLogin && actorLogin !== listenerLogin
-      ? [actorLogin, ...others.filter((speaker) => speaker !== actorLogin)]
-      : others
+  const first = others[0]
+  const second = others[1]
 
-  for (const speaker of order) {
-    const url = voiceMap[`${event}-${speaker}`]
-    if (!url) continue
+  const line1 =
+    voiceMap[`${event}-1-${first}`] ?? (second ? voiceMap[`${event}-1-${second}`] : undefined)
+  const line2 =
+    voiceMap[`${event}-2-${second}`] ?? (first ? voiceMap[`${event}-2-${first}`] : undefined)
 
-    const voice = new Audio(url)
-    const ducked = music
-    const previousVolume = ducked?.volume ?? 0
+  const sequence = [line1, line2].filter((url): url is string => Boolean(url))
+  if (sequence.length === 0) return
 
-    if (ducked) ducked.volume = 0.05
-    const restore = () => {
-      if (ducked) ducked.volume = previousVolume
+  // Приглушаем музыку, пока говорят, и возвращаем громкость в конце.
+  const ducked = music
+  const previousVolume = ducked?.volume ?? 0
+  if (ducked) ducked.volume = 0.05
+
+  const restore = () => {
+    if (ducked) ducked.volume = previousVolume
+  }
+
+  const playAt = (index: number) => {
+    if (index >= sequence.length) {
+      restore()
+      return
     }
 
-    voice.addEventListener('ended', restore, { once: true })
-    voice.addEventListener('error', restore, { once: true })
-    void voice.play().catch(restore)
-    return
+    const voice = new Audio(sequence[index])
+    voice.addEventListener('ended', () => window.setTimeout(() => playAt(index + 1), 200), {
+      once: true,
+    })
+    voice.addEventListener('error', () => playAt(index + 1), { once: true })
+    void voice.play().catch(() => playAt(index + 1))
   }
+
+  playAt(0)
 }
 
 // ───────────────────────────── разблокировка ───────────────────────────────
