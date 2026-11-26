@@ -35,3 +35,6 @@ jobs:
 
       - name: Готовый apply_all.sql применяется целиком
         run: npm run test:bundle
+
+      - name: Edge-функция без синтаксических ошибок
+        run: npm run test:edge

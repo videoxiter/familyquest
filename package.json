@@ -10,8 +10,10 @@
     "preview": "vite preview",
     "test:sql": "node scripts/test-sql.mjs",
     "test:bundle": "node scripts/test-sql.mjs --bundle",
+    "test:edge": "node scripts/check-edge.mjs",
     "voices": "node scripts/scan-voices.mjs",
-    "test": "npm run typecheck && npm run test:sql && npm run test:bundle",
+    "vapid": "node scripts/make-vapid.mjs",
+    "test": "npm run typecheck && npm run test:sql && npm run test:bundle && npm run test:edge",
     "sql:bundle": "node scripts/bundle-sql.mjs"
   },
   "dependencies": {
