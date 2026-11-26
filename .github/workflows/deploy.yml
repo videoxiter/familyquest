@@ -36,6 +36,7 @@ jobs:
           # Repository → Settings → Secrets and variables → Actions → Variables
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          VITE_VAPID_PUBLIC_KEY: ${{ vars.VITE_VAPID_PUBLIC_KEY }}
         run: npm run build
 
       - name: Проверить, что переменные заданы

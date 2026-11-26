@@ -64,3 +64,50 @@ self.addEventListener('fetch', (event) => {
     }),
   )
 })
+
+// ───────────────────────────── уведомления ─────────────────────────────────
+
+self.addEventListener('push', (event) => {
+  let payload = {}
+  try {
+    payload = event.data ? event.data.json() : {}
+  } catch {
+    payload = {}
+  }
+
+  const title = payload.title || 'FamilyQuest'
+  const options = {
+    body: payload.body || '',
+    icon: './icons/icon-192.png',
+    badge: './icons/favicon-32.png',
+    lang: 'ru',
+    vibrate: [80, 40, 80],
+    data: { url: payload.url || './#/today' },
+  }
+
+  event.waitUntil(self.registration.showNotification(title, options))
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const target = (event.notification.data && event.notification.data.url) || './#/today'
+
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+      for (const client of windows) {
+        if ('focus' in client) {
+          if ('navigate' in client) {
+            try {
+              await client.navigate(target)
+            } catch {
+              /* старая версия браузера — просто фокусируемся */
+            }
+          }
+          return client.focus()
+        }
+      }
+      return self.clients.openWindow(target)
+    })(),
+  )
+})

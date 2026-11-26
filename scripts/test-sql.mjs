@@ -50,6 +50,7 @@ async function applyAll() {
     await apply('0002_rls.sql')
     await apply('0003_engine.sql')
     await apply('0005_seed.sql')
+    await apply('0006_push.sql')
     return
   }
 
@@ -268,6 +269,31 @@ try {
   // ── новый участник ──────────────────────────────────────────────────────
   const created = await one(`select public.create_member('Тестовый', 'child', 'testik', '2018-01-01') as r`)
   check('участник создан с кодом', Boolean(created.r?.code) && created.r.login === 'testik')
+
+  // ── push-подписки ───────────────────────────────────────────────────────
+  const subscribed = await one(
+    `select public.push_subscribe($1, $2, $3, $4) as r`,
+    ['https://push.example/abc', 'p256dh-key', 'auth-secret', 'test-agent'],
+  )
+  check('подписка на уведомления сохраняется', subscribed.r?.ok === true)
+
+  const pushState = await one(`select public.my_push_state() as s`)
+  check('my_push_state видит одну подписку', pushState.s?.count === 1)
+
+  const unsubscribed = await one(`select public.push_unsubscribe($1) as r`, [
+    'https://push.example/abc',
+  ])
+  const pushStateAfter = await one(`select public.my_push_state() as s`)
+  check(
+    'отписка удаляет подписку',
+    unsubscribed.r?.ok === true && pushStateAfter.s?.count === 0,
+  )
+
+  const tickSkip = await one(`select public.push_tick() as r`)
+  check(
+    'push_tick без настроенного адреса функций ничего не ломает',
+    tickSkip.r?.skipped === true,
+  )
 
   // ── RLS: ребёнок не видит чужое и не правит баллы ───────────────────────
   await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [ALYOSHA_USER])

@@ -1,8 +1,17 @@
+import { useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import clsx from 'clsx'
 import { signOut } from '../lib/api'
 import { playSound, playVoice, setMusicEnabled, setSoundEnabled } from '../lib/audio'
 import { useAudio } from '../lib/useAudio'
+import {
+  currentSubscription,
+  disablePush,
+  enablePush,
+  pushConfigured,
+  pushSupported,
+  sendTestPush,
+} from '../lib/push'
 import { relative } from '../lib/format'
 import { useAchievements, useLedger } from '../lib/queries'
 import type { Profile } from '../lib/types'
@@ -13,6 +22,27 @@ export default function Progress() {
   const achievements = useAchievements(me.id)
   const ledger = useLedger(me.id)
   const { music, sound } = useAudio()
+
+  const [pushOn, setPushOn] = useState<boolean | null>(null)
+  const [pushBusy, setPushBusy] = useState(false)
+  const [pushNote, setPushNote] = useState<string | null>(null)
+
+  useEffect(() => {
+    void currentSubscription().then((subscription) => setPushOn(Boolean(subscription)))
+  }, [])
+
+  async function togglePush(enable: boolean) {
+    setPushBusy(true)
+    try {
+      const result = enable ? await enablePush() : await disablePush()
+      setPushNote(result.message)
+      if (result.ok) setPushOn(enable)
+    } catch (e) {
+      setPushNote(e instanceof Error ? e.message : String(e))
+    } finally {
+      setPushBusy(false)
+    }
+  }
 
   const nextThreshold = me.next_level?.threshold ?? me.level.threshold
   const span = Math.max(1, nextThreshold - me.level.threshold)
@@ -161,6 +191,56 @@ export default function Progress() {
           >
             Проверить звук
           </button>
+        </Card>
+      </section>
+
+      <section>
+        <SectionTitle>Уведомления</SectionTitle>
+        <Card className="space-y-3">
+          <p className="text-xs text-mist-500">
+            Напоминание за час до дедлайна. На Android работает прямо в браузере, на iPhone —
+            только если приложение добавлено на экран «Домой».
+          </p>
+
+          <div className="flex gap-2">
+            <Button
+              className="flex-1"
+              disabled={pushBusy || pushOn === true || !pushConfigured || !pushSupported()}
+              onClick={() => void togglePush(true)}
+            >
+              {pushOn ? 'Включены' : 'Включить'}
+            </Button>
+            <Button
+              variant="ghost"
+              className="flex-1"
+              disabled={pushBusy || pushOn !== true}
+              onClick={() => void togglePush(false)}
+            >
+              Выключить
+            </Button>
+          </div>
+
+          {me.role === 'admin' && pushOn && (
+            <button
+              type="button"
+              className="text-xs text-accent underline-offset-4 hover:underline"
+              onClick={() => {
+                setPushBusy(true)
+                void sendTestPush()
+                  .then((result) => setPushNote(result.message))
+                  .finally(() => setPushBusy(false))
+              }}
+            >
+              Отправить тестовое уведомление
+            </button>
+          )}
+
+          {pushNote && <p className="text-xs text-accent">{pushNote}</p>}
+          {!pushConfigured && (
+            <p className="text-xs text-mist-500">
+              На этой сборке нет публичного ключа — уведомления недоступны.
+            </p>
+          )}
         </Card>
       </section>
 
