@@ -532,6 +532,10 @@ $$;
 -- ───────────────────────────── чтение для клиента ───────────────────────────
 
 -- Список для экрана входа: доступен без авторизации, только имя/аватар.
+-- Состав возвращаемых колонок меняется, а PostgreSQL не позволяет изменить его
+-- через create or replace — поэтому удаляем функцию перед созданием.
+drop function if exists public.login_members();
+
 create or replace function public.login_members()
 returns table (login text, display_name text, emoji text, color text, avatar_url text, role text)
 language sql

@@ -56,6 +56,12 @@ async function applyAll() {
   const raw = readFileSync(join(root, 'supabase', 'apply_all.sql'), 'utf8')
   await db.exec(stripExtensions(raw))
   console.log('  · применён supabase/apply_all.sql (тот же файл, что вставляется в Supabase)')
+
+  // Живая база обычно получает файл повторно после каждой доработки.
+  // Второй прогон ловит «cannot change return type of existing function»
+  // и прочие нарушения идемпотентности.
+  await db.exec(stripExtensions(raw))
+  console.log('  · применён повторно — проверка идемпотентности пройдена')
 }
 
 try {
