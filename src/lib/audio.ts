@@ -138,6 +138,19 @@ export function loadVoices(): Promise<void> {
 
 const SPEAKERS = ['papa', 'mama', 'alyosha']
 
+/** Все события, для которых существуют голосовые реплики (проверяется скриптом voices). */
+export const VOICE_EVENTS = [
+  'task_done',
+  'task_claimed',
+  'task_approved',
+  'task_rejected',
+  'task_late',
+  'level_up',
+  'achievement',
+  'streak_7',
+  'daily_reminder',
+] as const
+
 /**
  * На каждое событие человек слышит ДВУХ других членов семьи:
  * первый говорит реплику «1», второй — реплику «2».

@@ -54,9 +54,11 @@ if (skipped.length > 0) {
   console.log(`пропущены (имя не по схеме <событие>-<1|2>-<papa|mama|alyosha>): ${skipped.join(', ')}`)
 }
 
-// Проверяем, что события вообще известны приложению
+// Сверяемся со списком VOICE_EVENTS из src/lib/audio.ts
+const audioSource = readFileSync(join(root, 'src', 'lib', 'audio.ts'), 'utf8')
+const eventsBlock = audioSource.match(/VOICE_EVENTS\s*=\s*\[([\s\S]*?)\]/)
 const known = new Set(
-  readFileSync(join(root, 'src', 'lib', 'audio.ts'), 'utf8').match(/task_done|task_claimed|task_approved|task_rejected|task_late|level_up|achievement|streak_7|reward_redeemed|member_joined|daily_reminder/g) ?? [],
+  (eventsBlock?.[1] ?? '').match(/'([a-z0-9_]+)'/g)?.map((item) => item.replace(/'/g, '')) ?? [],
 )
 const unknown = [
   ...new Set(
